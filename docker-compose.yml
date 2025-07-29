@@ -112,8 +112,8 @@ services:
     networks: ["demo"]
     volumes:
       - nginx_ssl:/ssl
-      - ./generate-ssl.sh:/generate-ssl.sh:ro
-    command: sh -c "apk add --no-cache openssl && chmod +x /generate-ssl.sh && /generate-ssl.sh"
+      - ./generate-ssl.sh:/generate-ssl.sh
+    command: sh -c "apk add --no-cache openssl && sh /generate-ssl.sh"
 
   nginx-ssl:
     image: nginx:alpine
