@@ -3,14 +3,13 @@ volumes:
   postgres_storage:
   ollama_storage:
   qdrant_storage:
-  nginx_ssl:
 
 networks:
   demo:
 
 x-n8n: &service-n8n
   image: n8nio/n8n:latest
-  networks: ["demo"]
+  networks: ['demo']
   environment:
     - DB_TYPE=postgresdb
     - DB_POSTGRESDB_HOST=postgres
@@ -20,12 +19,8 @@ x-n8n: &service-n8n
     - N8N_PERSONALIZATION_ENABLED=false
     - N8N_ENCRYPTION_KEY
     - N8N_USER_MANAGEMENT_JWT_SECRET
-    - WEBHOOK_URL=https://13.61.84.159:5678
-    - N8N_HOST=0.0.0.0
-    - N8N_PORT=5678
-    - N8N_PROTOCOL=https
-    - N8N_SECURE_COOKIE=true
     - OLLAMA_HOST=${OLLAMA_HOST:-ollama:11434}
+    - WEBHOOK_URL=https://13.61.84.159:5678
   env_file:
     - path: .env
       required: true
@@ -33,7 +28,7 @@ x-n8n: &service-n8n
 x-ollama: &service-ollama
   image: ollama/ollama:latest
   container_name: ollama
-  networks: ["demo"]
+  networks: ['demo']
   restart: unless-stopped
   ports:
     - 11434:11434
@@ -42,7 +37,7 @@ x-ollama: &service-ollama
 
 x-init-ollama: &init-ollama
   image: ollama/ollama:latest
-  networks: ["demo"]
+  networks: ['demo']
   container_name: ollama-pull-llama
   volumes:
     - ollama_storage:/root/.ollama
@@ -57,7 +52,7 @@ services:
   postgres:
     image: postgres:16-alpine
     hostname: postgres
-    networks: ["demo"]
+    networks: ['demo']
     restart: unless-stopped
     environment:
       - POSTGRES_USER
@@ -66,11 +61,7 @@ services:
     volumes:
       - postgres_storage:/var/lib/postgresql/data
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}",
-        ]
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -94,49 +85,28 @@ services:
     hostname: n8n
     container_name: n8n
     restart: unless-stopped
-    expose:
-      - "5678"
+    ports:
+      - 5678:5678
     volumes:
       - n8n_storage:/home/node/.n8n
       - ./n8n/demo-data:/demo-data
       - ./shared:/data/shared
+    user: root
+    entrypoint: /bin/sh
+    command:
+      - "-c"
+      - "npm install -g @elevenlabs/n8n-nodes-elevenlabs && su node -c 'n8n start'"
     depends_on:
       postgres:
         condition: service_healthy
       n8n-import:
         condition: service_completed_successfully
 
-  ssl-generator:
-    image: alpine:latest
-    container_name: ssl-generator
-    networks: ["demo"]
-    volumes:
-      - nginx_ssl:/ssl
-      - ./generate-ssl.sh:/generate-ssl.sh
-    command: sh -c "apk add --no-cache openssl && sh /generate-ssl.sh"
-
-  nginx-ssl:
-    image: nginx:alpine
-    container_name: nginx-ssl
-    networks: ["demo"]
-    restart: unless-stopped
-    ports:
-      - "443:443"
-      - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - nginx_ssl:/etc/nginx/ssl
-    depends_on:
-      ssl-generator:
-        condition: service_completed_successfully
-      n8n:
-        condition: service_started
-
   qdrant:
     image: qdrant/qdrant
     hostname: qdrant
     container_name: qdrant
-    networks: ["demo"]
+    networks: ['demo']
     restart: unless-stopped
     ports:
       - 6333:6333
@@ -183,4 +153,4 @@ services:
     <<: *init-ollama
     image: ollama/ollama:rocm
     depends_on:
-      - ollama-gpu-amd
+     - ollama-gpu-amd
