@@ -3,6 +3,7 @@ volumes:
   postgres_storage:
   ollama_storage:
   qdrant_storage:
+  nginx_ssl:
 
 networks:
   demo:
@@ -19,6 +20,11 @@ x-n8n: &service-n8n
     - N8N_PERSONALIZATION_ENABLED=false
     - N8N_ENCRYPTION_KEY
     - N8N_USER_MANAGEMENT_JWT_SECRET
+    - WEBHOOK_URL=https://13.61.84.159:5678
+    - N8N_HOST=0.0.0.0
+    - N8N_PORT=5678
+    - N8N_PROTOCOL=https
+    - N8N_SECURE_COOKIE=true
     - OLLAMA_HOST=${OLLAMA_HOST:-ollama:11434}
   env_file:
     - path: .env
@@ -84,8 +90,8 @@ services:
     hostname: n8n
     container_name: n8n
     restart: unless-stopped
-    ports:
-      - 5678:5678
+    expose:
+      - "5678"
     volumes:
       - n8n_storage:/home/node/.n8n
       - ./n8n/demo-data:/demo-data
@@ -95,6 +101,30 @@ services:
         condition: service_healthy
       n8n-import:
         condition: service_completed_successfully
+
+  nginx-ssl:
+    image: nginx:alpine
+    container_name: nginx-ssl
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_ssl:/etc/nginx/ssl
+    command: >
+      sh -c "
+      if [ ! -f /etc/nginx/ssl/server.crt ]; then
+        mkdir -p /etc/nginx/ssl &&
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 
+        -keyout /etc/nginx/ssl/server.key 
+        -out /etc/nginx/ssl/server.crt 
+        -subj '/C=US/ST=State/L=City/O=Organization/CN=13.61.84.159';
+      fi &&
+      nginx -g 'daemon off;'"
+    depends_on:
+      - n8n
 
   qdrant:
     image: qdrant/qdrant
